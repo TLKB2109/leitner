@@ -92,7 +92,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.success(f"Moved to Box {card['box']}")
-                st.experimental_rerun()
+                st.rerun()
 
         with col2:
             if st.button("❌ Missed it"):
@@ -103,7 +103,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.error("Moved to Box 1")
-                st.experimental_rerun()
+                st.rerun()
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
