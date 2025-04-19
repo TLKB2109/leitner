@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import os
@@ -136,16 +135,28 @@ def import_cards():
         st.success(f"✅ Imported {imported} card(s)!")
 
 def overview_by_level():
-    st.header("📂 Overview by Level")
+    st.header("📂 Overview by Level (Editable)")
+    changed = False
     for level in range(1, MAX_LEVEL + 1):
         level_cards = [c for c in cards if c['level'] == level]
         with st.expander(f"📘 Level {level} ({len(level_cards)} cards)"):
             for i, card in enumerate(level_cards):
-                st.markdown(f"- **{card['front']}** → *{card['back']}* (Tag: {card.get('tag', 'none')})")
+                new_level = st.selectbox(
+                    f"{card['front']} → {card['back']}",
+                    options=list(range(1, MAX_LEVEL + 1)),
+                    index=card['level'] - 1,
+                    key=f"{card['front']}_{i}"
+                )
+                if new_level != card['level']:
+                    card['level'] = new_level
+                    changed = True
+    if changed:
+        save_cards(cards)
+        st.success("✅ Levels updated.")
 
-# Page routing
+# Menu
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards", "Overview"
+    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
 
 st.title("🧠 Custom 64-Day Leitner System")
@@ -178,11 +189,6 @@ elif page == "Add New Card":
 
 elif page == "Import Cards":
     import_cards()
-
-elif page == "View All Cards":
-    st.header("🗂 All Cards")
-    for i, card in enumerate(cards):
-        st.markdown(f"- **{card['front']}** → *{card['back']}* (Level {card['level']}, Tag: {card.get('tag', 'none')})")
 
 elif page == "Overview":
     overview_by_level()
