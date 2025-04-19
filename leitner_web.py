@@ -93,8 +93,9 @@ def review_cards(card_list):
                     card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
+                card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list)
+                st.session_state.current_card = random.choice(card_list) if card_list else None
                 st.session_state.show_answer = False
                 st.success(f"Moved to Level {card['level']}")
                 st.rerun()
@@ -104,8 +105,9 @@ def review_cards(card_list):
                 card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
+                card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list)
+                st.session_state.current_card = random.choice(card_list) if card_list else None
                 st.session_state.show_answer = False
                 st.error("Moved to Level 1")
                 st.rerun()
@@ -137,9 +139,19 @@ def import_cards():
         save_cards(cards)
         st.success(f"✅ Imported {imported} card(s)!")
 
+def override_levels():
+    st.header("🛠 Manually Move Cards Between Levels")
+    for i, card in enumerate(cards):
+        with st.expander(f"📌 {card['front']} → {card['back']} (Level {card['level']})"):
+            new_level = st.slider(f"Set new level for card {i+1}", 1, MAX_LEVEL, card['level'], key=f"override_{i}")
+            if st.button("Update", key=f"update_{i}"):
+                card['level'] = new_level
+                save_cards(cards)
+                st.success(f"✅ Updated to Level {new_level}")
+
 # Page routing
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards"
+    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards", "Manual Override"
 ])
 
 st.title("🧠 Custom 64-Day Leitner System")
@@ -177,3 +189,6 @@ elif page == "View All Cards":
     st.header("🗂 All Cards")
     for i, card in enumerate(cards):
         st.markdown(f"- **{card['front']}** → *{card['back']}* (Level {card['level']}, Tag: {card.get('tag', 'none')})")
+
+elif page == "Manual Override":
+    override_levels()
