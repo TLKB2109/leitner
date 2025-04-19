@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import os
@@ -96,9 +95,37 @@ def review_cards(card_list):
                 st.error("Moved to Box 1")
                 st.experimental_rerun()
 
+# Multi-card import
+def import_cards():
+    st.header("📥 Import Multiple Cards")
+    st.markdown("Paste cards below using this format (one per line):")
+    st.code("Question::Answer::Tag (tag is optional)", language="text")
+
+    input_text = st.text_area("Paste your cards here:", height=200)
+    if st.button("Import Cards"):
+        lines = input_text.strip().split('\n')
+        imported = 0
+        for line in lines:
+            parts = line.strip().split("::")
+            if len(parts) >= 2:
+                front = parts[0]
+                back = parts[1]
+                tag = parts[2] if len(parts) >= 3 else ""
+                cards.append({
+                    'front': front,
+                    'back': back,
+                    'box': 1,
+                    'tag': tag,
+                    'missed_count': 0,
+                    'last_reviewed': str(datetime.now().date())
+                })
+                imported += 1
+        save_cards(cards)
+        st.success(f"✅ Imported {imported} card(s)!")
+
 # Page selector
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Due Cards", "Review All Cards", "Review by Tag", "Add New Card", "View All Cards"
+    "Home", "Review Due Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards"
 ])
 
 # Routes
@@ -119,13 +146,19 @@ elif page == "Review All Cards":
 elif page == "Review by Tag":
     st.header("🏷 Review by Tag")
     tags = list(set(c.get("tag", "") for c in cards if c.get("tag")))
-    selected_tag = st.selectbox("Choose a tag:", tags)
-    filtered = [c for c in cards if c.get("tag") == selected_tag]
-    review_cards(filtered)
+    if tags:
+        selected_tag = st.selectbox("Choose a tag:", tags)
+        filtered = [c for c in cards if c.get("tag") == selected_tag]
+        review_cards(filtered)
+    else:
+        st.warning("No tags available yet.")
 
 elif page == "Add New Card":
     st.header("➕ Add a New Card")
     add_card()
+
+elif page == "Import Cards":
+    import_cards()
 
 elif page == "View All Cards":
     st.header("🗂 All Cards")
