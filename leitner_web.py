@@ -72,7 +72,7 @@ def review_cards(card_list):
         st.info("No cards to review.")
         return
 
-    card = random.choice(card_list)
+    if "current_card" not in st.session_state:
     st.markdown(f"### ❓ [Box {card['box']}] {card['front']}")
     if st.button("Show Answer"):
         st.markdown(f"**Answer:** {card['back']}")
