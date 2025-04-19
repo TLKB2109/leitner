@@ -5,45 +5,50 @@ import random
 from datetime import datetime, timedelta
 
 DATA_FILE = 'leitner_cards.json'
-BOX_COUNT = 7
+SCHEDULE_FILE = 'custom_schedule.json'
+MAX_LEVEL = 7
 
-# Load data
+# Load cards
 def load_cards():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
     return []
 
-# Save data
+# Save cards
 def save_cards(cards):
     with open(DATA_FILE, 'w') as f:
         json.dump(cards, f, indent=2)
 
+# Load schedule
+def load_schedule():
+    if os.path.exists(SCHEDULE_FILE):
+        with open(SCHEDULE_FILE, 'r') as f:
+            return json.load(f)
+    else:
+        st.error("⚠️ custom_schedule.json is missing!")
+        return {"start_date": str(datetime.now().date()), "schedule": {}}
+
 cards = load_cards()
+schedule_data = load_schedule()
+start_date = datetime.strptime(schedule_data["start_date"], "%Y-%m-%d").date()
+days_since_start = (datetime.now().date() - start_date).days
+today_day = (days_since_start % 64) + 1
+todays_levels = schedule_data["schedule"].get(str(today_day), [1])
 
-def is_due(card):
-    box_interval = [1, 2, 4, 7, 14, 21, 30]
-    days = box_interval[card['box'] - 1]
-    last = datetime.strptime(card.get('last_reviewed', str(datetime.now().date())), "%Y-%m-%d")
-    return datetime.now().date() >= (last + timedelta(days=days)).date()
-
+# Helper functions
 def get_due_cards():
-    return [c for c in cards if is_due(c)]
+    return [c for c in cards if c['level'] in todays_levels]
 
 def show_summary():
-    st.markdown("### 📊 Box Distribution")
+    st.markdown("### 📊 Level Distribution")
     total = len(cards)
-    for i in range(1, BOX_COUNT + 1):
-        count = len([c for c in cards if c['box'] == i])
+    for i in range(1, MAX_LEVEL + 1):
+        count = len([c for c in cards if c['level'] == i])
         percent = (count / total * 100) if total > 0 else 0
-        st.write(f"Box {i}: {count} cards ({percent:.1f}%)")
+        st.write(f"Level {i}: {count} cards ({percent:.1f}%)")
 
-    due = [c['box'] for c in cards if is_due(c)]
-    if due:
-        due_boxes = sorted(set(due))
-        st.success("🔔 Boxes with due cards today: " + ', '.join(str(b) for b in due_boxes))
-    else:
-        st.info("✅ No boxes have due cards today.")
+    st.success(f"📅 Today is Day {today_day} — reviewing levels: {', '.join(map(str, todays_levels))}")
 
 def add_card():
     with st.form("add_card_form"):
@@ -55,7 +60,7 @@ def add_card():
             new_card = {
                 'front': front,
                 'back': back,
-                'box': 1,
+                'level': 1,
                 'tag': tag,
                 'missed_count': 0,
                 'last_reviewed': str(datetime.now().date())
@@ -74,7 +79,7 @@ def review_cards(card_list):
 
     card = st.session_state.current_card
 
-    st.markdown(f"### ❓ [Box {card['box']}] {card['front']}")
+    st.markdown(f"### ❓ [Level {card['level']}] {card['front']}")
     if st.button("Show Answer"):
         st.session_state.show_answer = True
 
@@ -84,25 +89,25 @@ def review_cards(card_list):
         col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Got it"):
-                if card['box'] < BOX_COUNT:
-                    card['box'] += 1
+                if card['level'] < MAX_LEVEL:
+                    card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.success(f"Moved to Box {card['box']}")
+                st.success(f"Moved to Level {card['level']}")
                 st.rerun()
 
         with col2:
             if st.button("❌ Missed it"):
-                card['box'] = 1
+                card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.error("Moved to Box 1")
+                st.error("Moved to Level 1")
                 st.rerun()
 
 def import_cards():
@@ -123,7 +128,7 @@ def import_cards():
                 cards.append({
                     'front': front,
                     'back': back,
-                    'box': 1,
+                    'level': 1,
                     'tag': tag,
                     'missed_count': 0,
                     'last_reviewed': str(datetime.now().date())
@@ -132,19 +137,19 @@ def import_cards():
         save_cards(cards)
         st.success(f"✅ Imported {imported} card(s)!")
 
-# Menu & routing
+# Page routing
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Due Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards"
+    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards"
 ])
 
-st.title("🧠 Leitner Box Study System (Web App)")
+st.title("🧠 Custom 64-Day Leitner System")
 
 if page == "Home":
     st.header("📌 Summary")
     show_summary()
 
-elif page == "Review Due Cards":
-    st.header("📆 Review Due Cards")
+elif page == "Review Today's Cards":
+    st.header("📆 Review Today's Cards")
     review_cards(get_due_cards())
 
 elif page == "Review All Cards":
@@ -171,4 +176,4 @@ elif page == "Import Cards":
 elif page == "View All Cards":
     st.header("🗂 All Cards")
     for i, card in enumerate(cards):
-        st.markdown(f"- **{card['front']}** → *{card['back']}* (Box {card['box']}, Tag: {card.get('tag', 'none')})")
+        st.markdown(f"- **{card['front']}** → *{card['back']}* (Level {card['level']}, Tag: {card.get('tag', 'none')})")
