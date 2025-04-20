@@ -84,25 +84,25 @@ def review_cards(card_list):
                     card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
+                st.success(f"✅ Moved to Level {card['level']}")
+                save_cards(cards)
                 if card in card_list:
                     card_list.remove(card)
-                save_cards(cards)
                 st.session_state.show_answer = False
                 st.session_state.current_card = random.choice(card_list) if card_list else None
-                st.success(f"✅ Moved to Level {card['level']}")
-                st.rerun()
+                st.experimental_rerun()
         with col2:
             if st.button("❌ Missed it"):
                 card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
+                st.error("❌ Moved to Level 1")
+                save_cards(cards)
                 if card in card_list:
                     card_list.remove(card)
-                save_cards(cards)
                 st.session_state.show_answer = False
                 st.session_state.current_card = random.choice(card_list) if card_list else None
-                st.error("❌ Moved to Level 1")
-                st.rerun()
+                st.experimental_rerun()
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
@@ -152,7 +152,7 @@ def overview_by_level():
         save_cards(cards)
         st.success("✅ Level changes saved.")
 
-# Main app
+# Navigation
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
