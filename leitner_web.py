@@ -1,73 +1,91 @@
+import streamlit as st
 import json
 import os
 import random
+from datetime import datetime
 
 DATA_FILE = 'leitner_cards.json'
-BOX_COUNT = 7
+MAX_LEVEL = 7
 
-# Load or initialize flashcards
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, 'r') as f:
-        cards = json.load(f)
-else:
-    cards = []
+def load_cards():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as f:
+            return json.load(f)
+    return []
 
-# Add new card
-def add_card():
-    front = input("Question: ")
-    back = input("Answer: ")
-    cards.append({'front': front, 'back': back, 'box': 1})
-
-# Save cards to file
-def save_cards():
+def save_cards(cards):
     with open(DATA_FILE, 'w') as f:
         json.dump(cards, f, indent=2)
 
-# Review cards from a chosen box
-def review_box(box_number):
-    box_cards = [card for card in cards if card['box'] == box_number]
-    if not box_cards:
-        print(f"No cards in Box {box_number}")
+cards = load_cards()
+
+def add_card():
+    st.header("➕ Add a New Card")
+    with st.form("add_card_form"):
+        front = st.text_input("Question")
+        back = st.text_input("Answer")
+        submitted = st.form_submit_button("Add Card")
+        if submitted and front and back:
+            cards.append({
+                "front": front,
+                "back": back,
+                "level": 1,
+                "last_reviewed": str(datetime.now().date())
+            })
+            save_cards(cards)
+            st.success("✅ Card added!")
+
+def review_cards():
+    st.header("🧠 Review Cards")
+    review_pool = [c for c in cards]
+    if not review_pool:
+        st.info("No cards yet. Add some first!")
         return
 
-    random.shuffle(box_cards)
-    for card in box_cards:
-        print("\nQuestion:", card['front'])
-        input("Press Enter to show answer...")
-        print("Answer:", card['back'])
-        response = input("Did you get it right? (y/n): ").strip().lower()
+    if "current_card" not in st.session_state:
+        st.session_state.current_card = random.choice(review_pool)
 
-        if response == 'y' and card['box'] < BOX_COUNT:
-            card['box'] += 1
-            print(f"✅ Moved to Box {card['box']}")
-        elif response == 'n':
-            card['box'] = 1
-            print("❌ Moved to Box 1")
+    card = st.session_state.current_card
+    st.markdown(f"### ❓ {card['front']} (Level {card['level']})")
 
-# Main loop
-while True:
-    print("\n=== Leitner Box ===")
-    print("1. Add new card")
-    print("2. Review Box 1")
-    print("3. Review Box 2")
-    print("4. Review Box 3")
-    print("5. Review Box 4")
-    print("6. Review Box 5")
-    print("7. Review Box 6")
-    print("8. Review Box 7")
-    print("9. Exit")
+    if st.button("Show Answer"):
+        st.session_state.show_answer = True
 
-    choice = input("Choose an option: ").strip()
+    if st.session_state.get("show_answer", False):
+        st.markdown(f"**Answer:** {card['back']}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Got it"):
+                if card["level"] < MAX_LEVEL:
+                    card["level"] += 1
+                card["last_reviewed"] = str(datetime.now().date())
+                save_cards(cards)
+                st.session_state.show_answer = False
+                st.session_state.current_card = random.choice(review_pool)
+                st.experimental_rerun()
+        with col2:
+            if st.button("❌ Missed it"):
+                card["level"] = 1
+                card["last_reviewed"] = str(datetime.now().date())
+                save_cards(cards)
+                st.session_state.show_answer = False
+                st.session_state.current_card = random.choice(review_pool)
+                st.experimental_rerun()
 
-    if choice == '1':
-        add_card()
-        save_cards()
-    elif choice in ['2', '3', '4', '5', '6','7','8']:
-        review_box(int(choice) - 1)
-        save_cards()
-    elif choice == '9':
-        save_cards()
-        print("Goodbye!")
-        break
-    else:
-        print("Invalid choice.")
+def overview():
+    st.header("📊 Overview by Level")
+    for level in range(1, MAX_LEVEL + 1):
+        level_cards = [c for c in cards if c["level"] == level]
+        with st.expander(f"📘 Level {level} ({len(level_cards)} cards)"):
+            for card in level_cards:
+                st.write(f"- {card['front']} → {card['back']}")
+
+page = st.sidebar.selectbox("📚 Menu", ["Add Card", "Review", "Overview"])
+st.title("📱 Leitner Box")
+
+if page == "Add Card":
+    add_card()
+elif page == "Review":
+    review_cards()
+elif page == "Overview":
+    overview()
