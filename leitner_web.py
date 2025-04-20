@@ -85,37 +85,43 @@ def review_cards(card_list):
 
         with col1:
             if st.button("✅ Got it"):
-                if card['level'] < MAX_LEVEL:
-                    card['level'] += 1
-                card['missed_count'] = 0
-                card['last_reviewed'] = str(datetime.now().date())
+                for real_card in cards:
+                    if real_card['front'] == card['front']:
+                        if real_card['level'] < MAX_LEVEL:
+                            real_card['level'] += 1
+                        real_card['missed_count'] = 0
+                        real_card['last_reviewed'] = str(datetime.now().date())
+                        break
                 save_cards(cards)
                 st.session_state.show_answer = False
 
-                remaining = [c for c in card_list if c != card]
+                remaining = [c for c in card_list if c['front'] != card['front']]
                 if remaining:
                     st.session_state.current_card = random.choice(remaining)
                 else:
                     del st.session_state.current_card
 
-                st.success(f"✅ Moved to Level {card['level']}")
+                st.success("✅ Moved to next level")
                 st.rerun()
 
         with col2:
             if st.button("❌ Missed it"):
-                card['level'] = 1
-                card['missed_count'] = card.get('missed_count', 0) + 1
-                card['last_reviewed'] = str(datetime.now().date())
+                for real_card in cards:
+                    if real_card['front'] == card['front']:
+                        real_card['level'] = 1
+                        real_card['missed_count'] = real_card.get('missed_count', 0) + 1
+                        real_card['last_reviewed'] = str(datetime.now().date())
+                        break
                 save_cards(cards)
                 st.session_state.show_answer = False
 
-                remaining = [c for c in card_list if c != card]
+                remaining = [c for c in card_list if c['front'] != card['front']]
                 if remaining:
                     st.session_state.current_card = random.choice(remaining)
                 else:
                     del st.session_state.current_card
 
-                st.error("❌ Moved to Level 1")
+                st.error("❌ Reset to Level 1")
                 st.rerun()
 
 def import_cards():
