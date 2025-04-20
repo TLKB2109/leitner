@@ -91,7 +91,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.success(f"✅ Moved to Level {card['level']}")
-                st.experimental_rerun()
+                st.rerun()
 
         with col2:
             if st.button("❌ Missed it"):
@@ -102,7 +102,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.error("❌ Moved to Level 1")
-                st.experimental_rerun()
+                st.rerun()
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
@@ -171,7 +171,7 @@ def view_all_cards():
                     cards.pop(i)
                     save_cards(cards)
                     st.warning("❌ Card deleted.")
-                    st.experimental_rerun()
+                    st.rerun()
 
 # Page router
 page = st.sidebar.selectbox("📚 Menu", [
