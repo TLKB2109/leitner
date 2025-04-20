@@ -91,9 +91,15 @@ def review_cards(card_list):
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list)
+
+                remaining = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                st.success(f"✅ Promoted to Level {card['level']}")
+                if remaining:
+                    st.session_state.current_card = random.choice(remaining)
+                else:
+                    del st.session_state.current_card
+
+                st.success(f"✅ Moved to Level {card['level']}")
                 st.rerun()
 
         with col2:
@@ -102,9 +108,15 @@ def review_cards(card_list):
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list)
+
+                remaining = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                st.error("❌ Reset to Level 1")
+                if remaining:
+                    st.session_state.current_card = random.choice(remaining)
+                else:
+                    del st.session_state.current_card
+
+                st.error("❌ Moved to Level 1")
                 st.rerun()
 
 def import_cards():
