@@ -37,16 +37,17 @@ def add_card():
 
 def review_cards():
     st.header("🧠 Review Cards")
-    review_pool = [c for c in cards]
+    review_pool = cards.copy()
     if not review_pool:
-        st.info("No cards yet. Add some first!")
+        st.info("No cards to review.")
         return
 
-    if "current_card" not in st.session_state:
+    if "current_card" not in st.session_state or st.session_state.current_card not in review_pool:
         st.session_state.current_card = random.choice(review_pool)
+        st.session_state.show_answer = False
 
     card = st.session_state.current_card
-    st.markdown(f"### ❓ {card['front']} (Level {card['level']})")
+    st.markdown(f"### ❓ [Level {card['level']}] {card['front']}")
 
     if st.button("Show Answer"):
         st.session_state.show_answer = True
@@ -54,23 +55,33 @@ def review_cards():
     if st.session_state.get("show_answer", False):
         st.markdown(f"**Answer:** {card['back']}")
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("✅ Got it"):
                 if card["level"] < MAX_LEVEL:
                     card["level"] += 1
                 card["last_reviewed"] = str(datetime.now().date())
                 save_cards(cards)
+                review_pool.remove(card)
                 st.session_state.show_answer = False
-                st.session_state.current_card = random.choice(review_pool)
-                st.experimental_rerun()
+                if review_pool:
+                    st.session_state.current_card = random.choice(review_pool)
+                    st.experimental_rerun()
+                else:
+                    st.success("🎉 All cards reviewed!")
+
         with col2:
             if st.button("❌ Missed it"):
                 card["level"] = 1
                 card["last_reviewed"] = str(datetime.now().date())
                 save_cards(cards)
+                review_pool.remove(card)
                 st.session_state.show_answer = False
-                st.session_state.current_card = random.choice(review_pool)
-                st.experimental_rerun()
+                if review_pool:
+                    st.session_state.current_card = random.choice(review_pool)
+                    st.experimental_rerun()
+                else:
+                    st.success("🎉 All cards reviewed!")
 
 def overview():
     st.header("📊 Overview by Level")
@@ -80,12 +91,13 @@ def overview():
             for card in level_cards:
                 st.write(f"- {card['front']} → {card['back']}")
 
-page = st.sidebar.selectbox("📚 Menu", ["Add Card", "Review", "Overview"])
-st.title("📱 Leitner Box")
+# App layout
+page = st.sidebar.selectbox("📚 Menu", ["Add Card", "Review Cards", "Overview"])
+st.title("🧠 Leitner Box Study App")
 
 if page == "Add Card":
     add_card()
-elif page == "Review":
+elif page == "Review Cards":
     review_cards()
 elif page == "Overview":
     overview()
