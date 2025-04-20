@@ -4,8 +4,8 @@ import os
 import random
 from datetime import datetime, timedelta
 
+# 📂 Auto-expand sidebar + wider layout
 st.set_page_config(page_title="Leitner Box", layout="wide", initial_sidebar_state="expanded")
-
 
 DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
@@ -93,7 +93,7 @@ def review_cards(card_list):
                 save_cards(cards)
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.success(f"✅ Moved to Level {card['level']}")
+                st.success(f"✅ Promoted to Level {card['level']}")
                 st.rerun()
 
         with col2:
@@ -104,7 +104,7 @@ def review_cards(card_list):
                 save_cards(cards)
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.error("❌ Moved to Level 1")
+                st.error("❌ Reset to Level 1")
                 st.rerun()
 
 def import_cards():
@@ -176,9 +176,10 @@ def view_all_cards():
                     st.warning("❌ Card deleted.")
                     st.rerun()
 
-# Page router
+# Sidebar menu
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards", "Manual Override"
+    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag",
+    "Add New Card", "Import Cards", "View All Cards", "Manual Override"
 ])
 
 st.title("📘 Leitner Box")
