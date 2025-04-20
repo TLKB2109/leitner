@@ -93,11 +93,10 @@ def review_cards(card_list):
                     card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
-                card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list) if card_list else None
+                st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.success(f"Moved to Level {card['level']}")
+                st.success(f"✅ Moved to Level {card['level']}")
                 st.rerun()
 
         with col2:
@@ -105,11 +104,10 @@ def review_cards(card_list):
                 card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
-                card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list) if card_list else None
+                st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
-                st.error("Moved to Level 1")
+                st.error("❌ Moved to Level 1")
                 st.rerun()
 
 def import_cards():
@@ -154,7 +152,7 @@ page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards", "Manual Override"
 ])
 
-st.title("Leitner")
+st.title("📘 Leitner Box")
 
 if page == "Home":
     st.header("📌 Summary")
