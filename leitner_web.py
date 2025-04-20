@@ -8,19 +8,16 @@ DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
 MAX_LEVEL = 7
 
-# Load cards
 def load_cards():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
             return json.load(f)
     return []
 
-# Save cards
 def save_cards(cards):
     with open(DATA_FILE, 'w') as f:
         json.dump(cards, f, indent=2)
 
-# Load schedule
 def load_schedule():
     if os.path.exists(SCHEDULE_FILE):
         with open(SCHEDULE_FILE, 'r') as f:
@@ -87,8 +84,9 @@ def review_cards(card_list):
                     card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
+                if card in card_list:
+                    card_list.remove(card)
                 save_cards(cards)
-                card_list.remove(card)
                 st.session_state.show_answer = False
                 st.session_state.current_card = random.choice(card_list) if card_list else None
                 st.success(f"✅ Moved to Level {card['level']}")
@@ -98,8 +96,9 @@ def review_cards(card_list):
                 card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
+                if card in card_list:
+                    card_list.remove(card)
                 save_cards(cards)
-                card_list.remove(card)
                 st.session_state.show_answer = False
                 st.session_state.current_card = random.choice(card_list) if card_list else None
                 st.error("❌ Moved to Level 1")
@@ -153,7 +152,7 @@ def overview_by_level():
         save_cards(cards)
         st.success("✅ Level changes saved.")
 
-# Navigation
+# Main app
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
