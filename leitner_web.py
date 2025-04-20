@@ -4,7 +4,6 @@ import os
 import random
 from datetime import datetime, timedelta
 
-# 📂 Auto-expand sidebar + wider layout
 st.set_page_config(page_title="Leitner Box", layout="wide", initial_sidebar_state="expanded")
 
 DATA_FILE = 'leitner_cards.json'
@@ -91,9 +90,9 @@ def review_cards(card_list):
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
+                st.session_state.show_answer = False
 
                 remaining = [c for c in card_list if c != card]
-                st.session_state.show_answer = False
                 if remaining:
                     st.session_state.current_card = random.choice(remaining)
                 else:
@@ -108,9 +107,9 @@ def review_cards(card_list):
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
                 save_cards(cards)
+                st.session_state.show_answer = False
 
                 remaining = [c for c in card_list if c != card]
-                st.session_state.show_answer = False
                 if remaining:
                     st.session_state.current_card = random.choice(remaining)
                 else:
