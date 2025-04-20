@@ -43,7 +43,6 @@ def show_summary():
         count = len([c for c in cards if c['level'] == i])
         percent = (count / total * 100) if total > 0 else 0
         st.write(f"Level {i}: {count} cards ({percent:.1f}%)")
-
     st.success(f"📅 Today is Day {today_day} — reviewing levels: {', '.join(map(str, todays_levels))}")
 
 def add_card():
@@ -73,15 +72,15 @@ def review_cards(card_list):
         st.session_state.current_card = random.choice(card_list)
 
     card = st.session_state.current_card
-
     st.markdown(f"### ❓ [Level {card['level']}] {card['front']}")
+
     if st.button("Show Answer"):
         st.session_state.show_answer = True
 
     if st.session_state.get("show_answer", False):
         st.markdown(f"**Answer:** {card['back']}")
-
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("✅ Got it"):
                 if card['level'] < MAX_LEVEL:
@@ -92,7 +91,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.success(f"✅ Moved to Level {card['level']}")
-                st.rerun()
+                st.experimental_rerun()
 
         with col2:
             if st.button("❌ Missed it"):
@@ -103,7 +102,7 @@ def review_cards(card_list):
                 st.session_state.current_card = random.choice(card_list)
                 st.session_state.show_answer = False
                 st.error("❌ Moved to Level 1")
-                st.rerun()
+                st.experimental_rerun()
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
