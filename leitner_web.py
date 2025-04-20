@@ -26,7 +26,6 @@ def load_schedule():
         with open(SCHEDULE_FILE, 'r') as f:
             return json.load(f)
     else:
-        st.error("⚠️ custom_schedule.json is missing!")
         return {"start_date": str(datetime.now().date()), "schedule": {}}
 
 cards = load_cards()
@@ -88,24 +87,22 @@ def review_cards(card_list):
                     card['level'] += 1
                 card['missed_count'] = 0
                 card['last_reviewed'] = str(datetime.now().date())
-                if card in card_list:
-                    card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list) if card_list else None
+                card_list.remove(card)
                 st.session_state.show_answer = False
-                st.success(f"Moved to Level {card['level']}")
+                st.session_state.current_card = random.choice(card_list) if card_list else None
+                st.success(f"✅ Moved to Level {card['level']}")
                 st.rerun()
         with col2:
             if st.button("❌ Missed it"):
                 card['level'] = 1
                 card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
-                if card in card_list:
-                    card_list.remove(card)
                 save_cards(cards)
-                st.session_state.current_card = random.choice(card_list) if card_list else None
+                card_list.remove(card)
                 st.session_state.show_answer = False
-                st.error("Moved to Level 1")
+                st.session_state.current_card = random.choice(card_list) if card_list else None
+                st.error("❌ Moved to Level 1")
                 st.rerun()
 
 def import_cards():
@@ -136,25 +133,27 @@ def import_cards():
 
 def overview_by_level():
     st.header("📂 Overview by Level (Editable)")
-    changed = False
+    level_updates = {}
     for level in range(1, MAX_LEVEL + 1):
         level_cards = [c for c in cards if c['level'] == level]
         with st.expander(f"📘 Level {level} ({len(level_cards)} cards)"):
             for i, card in enumerate(level_cards):
+                unique_key = f"{card['front']}_{card['back']}_{i}_{id(card)}"
                 new_level = st.selectbox(
                     f"{card['front']} → {card['back']}",
                     options=list(range(1, MAX_LEVEL + 1)),
                     index=card['level'] - 1,
-                    key=f"{card['front']}_{card['back']}_{i}_{id(card)}"
+                    key=unique_key
                 )
                 if new_level != card['level']:
-                    card['level'] = new_level
-                    changed = True
-    if changed:
+                    level_updates[unique_key] = (card, new_level)
+    if st.button("💾 Save Level Changes"):
+        for (card, new_level) in level_updates.values():
+            card['level'] = new_level
         save_cards(cards)
-        st.success("✅ Levels updated.")
+        st.success("✅ Level changes saved.")
 
-# Page navigation
+# Navigation
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
