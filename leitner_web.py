@@ -145,7 +145,7 @@ def overview_by_level():
                     f"{card['front']} → {card['back']}",
                     options=list(range(1, MAX_LEVEL + 1)),
                     index=card['level'] - 1,
-                    key=f"{card['front']}_{i}"
+                    key=f"{card['front']}_{card['back']}_{i}_{id(card)}"
                 )
                 if new_level != card['level']:
                     card['level'] = new_level
@@ -154,7 +154,7 @@ def overview_by_level():
         save_cards(cards)
         st.success("✅ Levels updated.")
 
-# Menu
+# Page navigation
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
