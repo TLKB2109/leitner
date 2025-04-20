@@ -78,6 +78,7 @@ def review_cards(card_list):
     if st.session_state.get("show_answer", False):
         st.markdown(f"**Answer:** {card['back']}")
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("✅ Got it"):
                 if card['level'] < MAX_LEVEL:
@@ -86,15 +87,15 @@ def review_cards(card_list):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.success(f"✅ Moved to Level {card['level']}")
                 save_cards(cards)
-                if card in card_list:
-                    card_list.remove(card)
+                remaining = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                if card_list:
-                    st.session_state.current_card = random.choice(card_list)
+                if remaining:
+                    st.session_state.current_card = random.choice(remaining)
                     st.experimental_rerun()
                 else:
                     st.success("🎉 You're done reviewing for now!")
                     st.session_state.current_card = None
+
         with col2:
             if st.button("❌ Missed it"):
                 card['level'] = 1
@@ -102,11 +103,10 @@ def review_cards(card_list):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.error("❌ Moved to Level 1")
                 save_cards(cards)
-                if card in card_list:
-                    card_list.remove(card)
+                remaining = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                if card_list:
-                    st.session_state.current_card = random.choice(card_list)
+                if remaining:
+                    st.session_state.current_card = random.choice(remaining)
                     st.experimental_rerun()
                 else:
                     st.success("🎉 You're done reviewing for now!")
@@ -160,7 +160,7 @@ def overview_by_level():
         save_cards(cards)
         st.success("✅ Level changes saved.")
 
-# Navigation
+# Sidebar
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
