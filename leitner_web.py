@@ -89,8 +89,12 @@ def review_cards(card_list):
                 if card in card_list:
                     card_list.remove(card)
                 st.session_state.show_answer = False
-                st.session_state.current_card = random.choice(card_list) if card_list else None
-                st.experimental_rerun()
+                if card_list:
+                    st.session_state.current_card = random.choice(card_list)
+                    st.experimental_rerun()
+                else:
+                    st.success("🎉 You're done reviewing for now!")
+                    st.session_state.current_card = None
         with col2:
             if st.button("❌ Missed it"):
                 card['level'] = 1
@@ -101,8 +105,12 @@ def review_cards(card_list):
                 if card in card_list:
                     card_list.remove(card)
                 st.session_state.show_answer = False
-                st.session_state.current_card = random.choice(card_list) if card_list else None
-                st.experimental_rerun()
+                if card_list:
+                    st.session_state.current_card = random.choice(card_list)
+                    st.experimental_rerun()
+                else:
+                    st.success("🎉 You're done reviewing for now!")
+                    st.session_state.current_card = None
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
