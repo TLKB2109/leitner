@@ -4,6 +4,9 @@ import os
 import random
 from datetime import datetime, timedelta
 
+st.set_page_config(page_title="Leitner Box", layout="wide", initial_sidebar_state="expanded")
+
+
 DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
 MAX_LEVEL = 7
