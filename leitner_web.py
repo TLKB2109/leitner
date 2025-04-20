@@ -87,10 +87,12 @@ def review_cards(card_list):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.success(f"✅ Moved to Level {card['level']}")
                 save_cards(cards)
-                remaining = [c for c in card_list if c != card]
+
+                card_list = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                if remaining:
-                    st.session_state.current_card = random.choice(remaining)
+
+                if card_list:
+                    st.session_state.current_card = random.choice(card_list)
                     st.experimental_rerun()
                 else:
                     st.success("🎉 You're done reviewing for now!")
@@ -103,10 +105,12 @@ def review_cards(card_list):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.error("❌ Moved to Level 1")
                 save_cards(cards)
-                remaining = [c for c in card_list if c != card]
+
+                card_list = [c for c in card_list if c != card]
                 st.session_state.show_answer = False
-                if remaining:
-                    st.session_state.current_card = random.choice(remaining)
+
+                if card_list:
+                    st.session_state.current_card = random.choice(card_list)
                     st.experimental_rerun()
                 else:
                     st.success("🎉 You're done reviewing for now!")
@@ -160,7 +164,7 @@ def overview_by_level():
         save_cards(cards)
         st.success("✅ Level changes saved.")
 
-# Sidebar
+# Navigation
 page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Overview"
 ])
