@@ -154,7 +154,7 @@ page = st.sidebar.selectbox("📚 Menu", [
     "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "View All Cards", "Manual Override"
 ])
 
-st.title("🧠 Custom 64-Day Leitner System")
+st.title("Leitner")
 
 if page == "Home":
     st.header("📌 Summary")
