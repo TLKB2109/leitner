@@ -91,33 +91,34 @@ def review_cards(card_list):
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Got it"):
-                if card['level'] < MAX_LEVEL:
-                    card['level'] += 1
-                card['missed_count'] = 0
-                card['last_reviewed'] = str(datetime.now().date())
-                save_cards(cards)
+    if st.button("✅ Got it"):
+        if card['level'] < MAX_LEVEL:
+            card['level'] += 1
+        card['missed_count'] = 0
+        card['last_reviewed'] = str(datetime.now().date())
+        save_cards(cards)  # <--- SAVE HERE
 
-                reviewed = st.session_state.get('reviewed_ids', set())
-                reviewed.add(id(card))
-                st.session_state.reviewed_ids = reviewed
+        reviewed = st.session_state.get('reviewed_ids', set())
+        reviewed.add(id(card))
+        st.session_state.reviewed_ids = reviewed
 
-                st.success(f"✅ Moved to Level {card['level']}")
-                st.rerun()
+        st.success(f"✅ Moved to Level {card['level']}")
+        st.rerun()
 
-        with col2:
-            if st.button("❌ Missed it"):
-                card['level'] = 1
-                card['missed_count'] = card.get('missed_count', 0) + 1
-                card['last_reviewed'] = str(datetime.now().date())
-                save_cards(cards)
+with col2:
+    if st.button("❌ Missed it"):
+        card['level'] = 1
+        card['missed_count'] = card.get('missed_count', 0) + 1
+        card['last_reviewed'] = str(datetime.now().date())
+        save_cards(cards)  # <--- SAVE HERE
 
-                reviewed = st.session_state.get('reviewed_ids', set())
-                reviewed.add(id(card))
-                st.session_state.reviewed_ids = reviewed
+        reviewed = st.session_state.get('reviewed_ids', set())
+        reviewed.add(id(card))
+        st.session_state.reviewed_ids = reviewed
 
-                st.error("❌ Reset to Level 1")
-                st.rerun()
+        st.error("❌ Reset to Level 1")
+        st.rerun()
+
 
 def import_cards():
     st.header("📥 Import Multiple Cards")
