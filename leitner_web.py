@@ -1,4 +1,5 @@
 import streamlit as st
+st.cache_data.clear()
 import json
 import os
 import random
