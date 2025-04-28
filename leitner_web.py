@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 # Files
 DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
+SESSION_FILE = 'leitner_session.json'
 MAX_LEVEL = 7
 
 # Load cards
@@ -21,6 +22,18 @@ def save_cards(cards):
     with open(DATA_FILE, 'w') as f:
         json.dump(cards, f, indent=2)
 
+# Load today's session
+def load_session():
+    if os.path.exists(SESSION_FILE):
+        with open(SESSION_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+# Save today's session
+def save_session(session_data):
+    with open(SESSION_FILE, 'w') as f:
+        json.dump(session_data, f, indent=2)
+
 # Load schedule
 def load_schedule():
     if os.path.exists(SCHEDULE_FILE):
@@ -32,10 +45,14 @@ def load_schedule():
 
 cards = load_cards()
 schedule_data = load_schedule()
+session_data = load_session()
+
 start_date = datetime.strptime(schedule_data["start_date"], "%Y-%m-%d").date()
 days_since_start = (datetime.now().date() - start_date).days
 today_day = (days_since_start % 64) + 1
 todays_levels = schedule_data["schedule"].get(str(today_day), [1])
+
+today_key = str(datetime.now().date())
 
 # Helper functions
 def get_due_cards():
@@ -75,14 +92,16 @@ def review_cards(card_list):
         st.success("🎉 All done for today!")
         return
 
-    # Track progress
-    if "current_card_index" not in st.session_state:
-        st.session_state.current_card_index = 0
-        random.shuffle(card_list)
-        st.session_state.cards_today = card_list
+    if today_key not in session_data:
+        session_data[today_key] = {
+            "cards_today": [card for card in card_list],
+            "current_card_index": 0
+        }
+        random.shuffle(session_data[today_key]["cards_today"])
+        save_session(session_data)
 
-    cards_today = st.session_state.cards_today
-    current_index = st.session_state.current_card_index
+    cards_today = session_data[today_key]["cards_today"]
+    current_index = session_data[today_key]["current_card_index"]
 
     if current_index >= len(cards_today):
         st.success("🎉 Finished all cards for today!")
@@ -104,25 +123,25 @@ def review_cards(card_list):
 
         with col1:
             if st.button("✅ Got it"):
-                # Level up
                 card['level'] = min(card['level'] + 1, MAX_LEVEL)
                 card['last_reviewed'] = str(datetime.now().date())
                 card['missed_count'] = 0
                 save_cards(cards)
 
-                st.session_state.current_card_index += 1
+                session_data[today_key]["current_card_index"] += 1
+                save_session(session_data)
                 st.session_state.show_answer = False
                 st.rerun()
 
         with col2:
             if st.button("❌ Missed it"):
-                # Reset to Level 1
                 card['level'] = 1
-                card['missed_count'] = card.get('missed_count', 0) + 1
                 card['last_reviewed'] = str(datetime.now().date())
+                card['missed_count'] = card.get('missed_count', 0) + 1
                 save_cards(cards)
 
-                st.session_state.current_card_index += 1
+                session_data[today_key]["current_card_index"] += 1
+                save_session(session_data)
                 st.session_state.show_answer = False
                 st.rerun()
 
