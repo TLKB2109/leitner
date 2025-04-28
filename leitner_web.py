@@ -4,6 +4,8 @@ import os
 import random
 from datetime import datetime, timedelta
 
+st.set_page_config(page_title="Leitner Box", layout="wide", initial_sidebar_state="expanded")
+
 DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
 MAX_LEVEL = 7
@@ -36,7 +38,6 @@ days_since_start = (datetime.now().date() - start_date).days
 today_day = (days_since_start % 64) + 1
 todays_levels = schedule_data["schedule"].get(str(today_day), [1])
 
-# Helper functions
 def get_due_cards():
     return [c for c in cards if c['level'] in todays_levels]
 
@@ -68,7 +69,7 @@ def add_card():
             save_cards(cards)
             st.success("✅ Card added!")
 
-# --- New: Prevent asking same card again ---
+# --- Track what cards reviewed today ---
 if "reviewed_today" not in st.session_state:
     st.session_state.reviewed_today = []
 
@@ -117,32 +118,46 @@ def review_cards(card_list):
                 st.error("❌ Reset to Level 1")
                 st.experimental_rerun()
 
+# --- ✨ NEW: Import cards with Level info! ---
 def import_cards():
-    st.header("📥 Import Multiple Cards")
+    st.header("📥 Import Multiple Cards (Now Supports Level!)")
     st.markdown("Paste cards below using this format (one per line):")
-    st.code("Question::Answer::Tag (tag is optional)", language="text")
+    st.code("Question::Answer::Tag::Level", language="text")
+    st.markdown("*(If you leave off Tag and Level, it defaults to empty and Level 1.)*")
 
-    input_text = st.text_area("Paste your cards here:", height=200)
+    input_text = st.text_area("Paste your cards here:", height=300)
     if st.button("Import Cards"):
         lines = input_text.strip().split('\n')
         imported = 0
+        updated = 0
+
         for line in lines:
             parts = line.strip().split("::")
             if len(parts) >= 2:
-                front = parts[0]
-                back = parts[1]
-                tag = parts[2] if len(parts) >= 3 else ""
-                cards.append({
-                    'front': front,
-                    'back': back,
-                    'level': 1,
-                    'tag': tag,
-                    'missed_count': 0,
-                    'last_reviewed': str(datetime.now().date())
-                })
-                imported += 1
+                front = parts[0].strip()
+                back = parts[1].strip()
+                tag = parts[2].strip() if len(parts) >= 3 else ""
+                level = int(parts[3]) if len(parts) >= 4 and parts[3].isdigit() else 1
+
+                # Check if card already exists
+                existing = next((c for c in cards if c['front'] == front), None)
+                if existing:
+                    existing['back'] = back
+                    existing['tag'] = tag
+                    existing['level'] = level
+                    updated += 1
+                else:
+                    cards.append({
+                        'front': front,
+                        'back': back,
+                        'level': level,
+                        'tag': tag,
+                        'missed_count': 0,
+                        'last_reviewed': str(datetime.now().date())
+                    })
+                    imported += 1
         save_cards(cards)
-        st.success(f"✅ Imported {imported} card(s)!")
+        st.success(f"✅ Imported {imported} new card(s), updated {updated} existing.")
 
 def override_levels():
     st.header("🛠 Manually Move Cards Between Levels")
@@ -156,10 +171,11 @@ def override_levels():
 
 # Page routing
 page = st.sidebar.selectbox("📚 Menu", [
-    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag", "Add New Card", "Import Cards", "Manual Override"
+    "Home", "Review Today's Cards", "Review All Cards", "Review by Tag",
+    "Add New Card", "Import Cards", "Manual Override"
 ])
 
-st.title("Leitner")
+st.title("📘 Leitner Box")
 
 if page == "Home":
     st.header("📌 Summary")
