@@ -5,15 +5,12 @@ from datetime import datetime
 import random
 
 DATA_FILE = "terms.json"
-
-# Automatically choose the correct schedule file
 if os.path.exists("custom_schedule.json"):
     SCHEDULE_FILE = "custom_schedule.json"
 else:
     SCHEDULE_FILE = "schedule.json"
 
-
-# ---------------- Loaders and Savers ---------------- #
+# ================= Loaders and Savers ================= #
 
 def load_terms():
     if not os.path.exists(DATA_FILE):
@@ -29,90 +26,119 @@ def load_schedule():
     with open(SCHEDULE_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
+# ================= Helpers ================= #
+
 def get_today_day(start_date_str):
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    today = datetime.now().date()
-    return ((today - start_date).days % 64) + 1
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    today = datetime.now()
+    return (today - start_date).days % 64 + 1
 
-def get_cards_for_today(terms, levels_today):
-    return [card for card in terms if card["level"] in levels_today]
+def get_cards_for_today(terms, schedule, today_day, completed_ids):
+    today_levels = list(map(int, schedule[str(today_day)]))
+    due_cards = [card for card in terms if card["level"] in today_levels and card["id"] not in completed_ids]
+    random.shuffle(due_cards)
+    return due_cards
 
-# ---------------- Main App ---------------- #
+def promote_card(card):
+    if card["level"] < 7:
+        card["level"] += 1
+
+def reset_card(card):
+    card["level"] = 1
+
+def count_cards_by_level(terms):
+    counts = {i: 0 for i in range(1, 8)}
+    for card in terms:
+        counts[card["level"]] += 1
+    return counts
+
+# ================= Main App ================= #
 
 def main():
-    st.set_page_config(page_title="Leitner Box", layout="centered")
     st.title("📘 Leitner Box Review")
 
-    schedule = load_schedule()
     terms = load_terms()
+    schedule = load_schedule()
     today_day = get_today_day(schedule["start_date"])
-    today_levels = schedule["schedule"].get(str(today_day), [])
+    today_key = f"day_{today_day}"
 
-    todays_cards = get_cards_for_today(terms, today_levels)
+    if "session_data" not in st.session_state:
+        st.session_state.session_data = {}
+    if today_key not in st.session_state.session_data:
+        st.session_state.session_data[today_key] = {"completed": set()}
 
-    st.subheader(f"📅 Day {today_day}: Reviewing Levels {today_levels}")
-    st.write(f"Cards due today: **{len(todays_cards)}**")
+    completed_ids = st.session_state.session_data[today_key]["completed"]
+    cards = get_cards_for_today(terms, schedule["schedule"], today_day, completed_ids)
 
-    if "current_index" not in st.session_state:
-        st.session_state.current_index = 0
+    st.subheader(f"📅 Day {today_day}: Reviewing Levels {schedule['schedule'][str(today_day)]}")
+    st.markdown(f"### Cards due today: {len(cards)}")
 
-    if st.session_state.current_index >= len(todays_cards):
-        st.success("✅ You finished all cards for today!")
-        return
+    if cards:
+        card = cards[0]
+        with st.form(key=f"review_form_{card['id']}"):
+            st.write(f"**Question:** {card['question']}")
+            show_answer = st.form_submit_button("Show Answer")
+            if show_answer:
+                st.success(f"**Answer:** {card['answer']}")
+                correct = st.form_submit_button("✅ Got it right")
+                wrong = st.form_submit_button("❌ Missed it")
+                if correct:
+                    promote_card(card)
+                    completed_ids.add(card["id"])
+                    save_terms(terms)
+                    st.experimental_rerun()
+                elif wrong:
+                    reset_card(card)
+                    completed_ids.add(card["id"])
+                    save_terms(terms)
+                    st.experimental_rerun()
+    else:
+        st.success("🎉 You finished all cards for today!")
 
-    current = todays_cards[st.session_state.current_index]
-    st.markdown(f"**Question:** {current['question']}")
-    with st.expander("Show Answer"):
-        st.markdown(f"**Answer:** {current['answer']}")
-        st.caption(f"Tag: {current['tag']} — Level {current['level']}")
-
-    col1, col2 = st.columns(2)
-    if col1.button("✅ Got it"):
-        for t in terms:
-            if t["question"] == current["question"]:
-                t["level"] = min(t["level"] + 1, 7)
-        save_terms(terms)
-        st.session_state.current_index += 1
-        st.experimental_rerun()
-
-    if col2.button("❌ Missed it"):
-        for t in terms:
-            if t["question"] == current["question"]:
-                t["level"] = 1
-        save_terms(terms)
-        st.session_state.current_index += 1
-        st.experimental_rerun()
-
-    if st.button("🔁 Restart Today's Review"):
-        st.session_state.current_index = 0
-        st.experimental_rerun()
-
-    # ---------------- Import Section ---------------- #
-    with st.expander("📥 Import New Cards to Specific Levels"):
-        text_input = st.text_area("Enter cards (format: `Question::Answer::Tag::Level`)", height=200)
-        if st.button("📩 Import Cards"):
-            count = 0
-            for line in text_input.strip().split("\n"):
-                parts = line.strip().split("::")
-                if len(parts) == 4:
-                    q, a, tag, lvl = map(str.strip, parts)
-                    if not any(card["question"] == q for card in terms):
-                        try:
-                            level = int(lvl)
-                            if level < 1 or level > 7:
-                                continue
-                            terms.append({
-                                "question": q,
-                                "answer": a,
-                                "tag": tag,
-                                "level": level
+    # Sidebar tools
+    with st.sidebar:
+        st.header("📥 Import Cards")
+        upload_input = st.text_area("Paste terms (Question::Answer::Tag::Level format)")
+        if st.button("Import"):
+            new_cards = []
+            existing_ids = {card["id"] for card in terms}
+            for line in upload_input.splitlines():
+                if "::" in line:
+                    parts = line.strip().split("::")
+                    if len(parts) == 4:
+                        q, a, tag, lvl = parts
+                        card_id = f"{q.strip()}::{a.strip()}"
+                        if card_id not in existing_ids:
+                            new_cards.append({
+                                "id": card_id,
+                                "question": q.strip(),
+                                "answer": a.strip(),
+                                "tag": tag.strip(),
+                                "level": int(lvl)
                             })
-                            count += 1
-                        except ValueError:
-                            continue
+            terms.extend(new_cards)
             save_terms(terms)
-            st.success(f"✅ Imported {count} new card(s).")
-            st.experimental_rerun()
+            st.success(f"✅ Imported {len(new_cards)} new cards.")
+
+        st.header("📊 Level Distribution")
+        counts = count_cards_by_level(terms)
+        total = sum(counts.values())
+        for level in range(1, 8):
+            count = counts[level]
+            pct = (count / total * 100) if total > 0 else 0
+            st.write(f"Level {level}: {count} cards ({pct:.1f}%)")
+
+        st.header("🛠 Manage Levels")
+        all_ids = [card["id"] for card in terms]
+        selected_id = st.selectbox("Select a card to move", all_ids) if all_ids else None
+        if selected_id:
+            selected_card = next(card for card in terms if card["id"] == selected_id)
+            st.markdown(f"**{selected_card['question']} → {selected_card['answer']}**")
+            new_level = st.selectbox("Move to level", list(range(1, 8)), index=selected_card["level"] - 1)
+            if st.button("Update Level"):
+                selected_card["level"] = new_level
+                save_terms(terms)
+                st.success("✅ Level updated!")
 
 if __name__ == "__main__":
     main()
