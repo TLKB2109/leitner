@@ -2,140 +2,122 @@ import streamlit as st
 import json
 import os
 from datetime import datetime
-import random
 
-DATA_FILE = "terms.json"
+DATA_FILE = "cards.json"
 SCHEDULE_FILE = "schedule.json"
 
-# Default 64-day schedule
+# ========== Default Schedule ==========
 DEFAULT_SCHEDULE = {
-    str(day): [level for level in range(1, 8) if (day - level) % 8 == 0]
-    for day in range(1, 65)
+    "start_date": str(datetime.today().date()),
+    "schedule": {str(i): [1] for i in range(1, 65)}
 }
+for i in range(1, 65):
+    if i % 2 == 0:
+        DEFAULT_SCHEDULE["schedule"][str(i)].append(2)
+    if i % 4 == 0:
+        DEFAULT_SCHEDULE["schedule"][str(i)].append(3)
 
-# Loaders
-def load_terms():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+# ========== Load / Save ==========
+def load_cards():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
-def save_terms(terms):
+def save_cards(cards):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(terms, f, ensure_ascii=False, indent=2)
+        json.dump(cards, f, ensure_ascii=False, indent=2)
 
 def load_schedule():
     if os.path.exists(SCHEDULE_FILE):
         with open(SCHEDULE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    else:
-        return DEFAULT_SCHEDULE
+    return DEFAULT_SCHEDULE
 
-# Helpers
-def get_today_day(start_date_str="2024-01-01"):
-    today = datetime.now().date()
+def get_today_day(start_date_str):
     start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    day_number = (today - start_date).days % 64 + 1
-    return str(day_number)
+    return ((datetime.today().date() - start_date).days % 64) + 1
 
-def get_cards_for_today(terms, schedule_data, today_day):
-    levels_today = schedule_data.get(today_day, [])
-    return {
-        q: card for q, card in terms.items()
-        if card.get("level", 1) in levels_today
-    }, levels_today
+# ========== Streamlit App ==========
+st.set_page_config(page_title="Leitner Box Flashcards", layout="wide")
 
-# UI
-st.set_page_config(page_title="Leitner Box", layout="wide")
-st.title("📚 Leitner Box Flashcards")
+if "cards" not in st.session_state:
+    st.session_state.cards = load_cards()
+if "current_card" not in st.session_state:
+    st.session_state.current_card = None
+if "show_answer" not in st.session_state:
+    st.session_state.show_answer = False
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-# Load data
-terms = load_terms()
+# Load schedule
 schedule = load_schedule()
-today_day = get_today_day()
-today_cards, levels_today = get_cards_for_today(terms, schedule, today_day)
+today_day = get_today_day(schedule["start_date"])
+today_levels = schedule["schedule"].get(str(today_day), [1])
 
-st.markdown(f"### Today's Levels: {levels_today} (Day {today_day})")
+# Sidebar
+st.sidebar.title("📥 Import / Save")
+input_data = st.sidebar.text_area("Paste cards here (Question::Answer::Tag::Level):", height=200)
+if st.sidebar.button("Import Cards"):
+    new_cards = {}
+    for line in input_data.strip().split("\n"):
+        parts = line.split("::")
+        if len(parts) >= 2:
+            q, a = parts[0].strip(), parts[1].strip()
+            tag = parts[2].strip() if len(parts) >= 3 else ""
+            level = int(parts[3].strip()) if len(parts) == 4 and parts[3].strip().isdigit() else 1
+            new_cards[q] = {"answer": a, "level": level, "tag": tag}
+    st.session_state.cards.update(new_cards)
+    save_cards(st.session_state.cards)
+    st.success(f"✅ Imported {len(new_cards)} cards.")
 
-# Initialize session state
-if "review_queue" not in st.session_state:
-    st.session_state.review_queue = list(today_cards.items())
-    random.shuffle(st.session_state.review_queue)
+if st.sidebar.button("💾 Save Progress"):
+    save_cards(st.session_state.cards)
+    st.success("Progress saved!")
 
-if "current" not in st.session_state and st.session_state.review_queue:
-    st.session_state.current = st.session_state.review_queue.pop()
+# Main Title
+st.title("📘 Leitner Box Flashcards")
+st.subheader(f"Today's Levels: {today_levels} (Day {today_day})")
 
-# Import
-with st.sidebar:
-    st.subheader("📥 Import / Save")
-    import_box = st.text_area("Paste cards here (Question::Answer::Tag::Level format):", height=150)
-    if st.button("Import Cards"):
-        count = 0
-        for line in import_box.strip().split("\n"):
-            if "::" in line:
-                parts = line.split("::")
-                if len(parts) >= 4:
-                    q, a, tag, level = parts[:4]
-                    terms[q] = {
-                        "answer": a,
-                        "tag": tag,
-                        "level": int(level),
-                        "history": []
-                    }
-                    count += 1
-        save_terms(terms)
-        st.success(f"✅ Imported {count} cards.")
+# Get today's cards
+today_cards = {
+    q: d for q, d in st.session_state.cards.items()
+    if d["level"] in today_levels
+}
 
-    if st.button("💾 Save Progress"):
-        save_terms(terms)
-        st.success("Progress saved.")
-
-    # Card count
-    st.subheader("📊 Level Distribution")
-    level_counts = {i: 0 for i in range(1, 8)}
-    for card in terms.values():
-        lvl = card.get("level", 1)
-        if lvl in level_counts:
-            level_counts[lvl] += 1
-    for lvl, count in level_counts.items():
-        st.write(f"Level {lvl}: {count} cards")
-
-# Review
-if "current" in st.session_state:
-    q, card = st.session_state.current
-    st.subheader("📝 Review")
-    st.markdown(f"**Question:** {q} ({card.get('tag', '')})")
-    answer = st.text_input("Your Answer", key="answer_input")
-
-    if st.button("Submit"):
-        correct = answer.strip().lower() == card["answer"].strip().lower()
-        st.markdown("✅ Correct!" if correct else f"❌ Incorrect. Answer was: **{card['answer']}**")
-
-        # Init history if missing
-        if "history" not in card:
-            card["history"] = []
-
-        # Log
-        card["history"].append({
-            "date": str(datetime.now().date()),
-            "correct": correct
-        })
-
-        # Adjust level
-        if correct:
-            card["level"] = min(card.get("level", 1) + 1, 7)
-        else:
-            card["level"] = 1
-
-        terms[q] = card
-        save_terms(terms)
-
-        # Move to next
-        if st.session_state.review_queue:
-            st.session_state.current = st.session_state.review_queue.pop()
-        else:
-            del st.session_state["current"]
-            st.success("🎉 You're done for today!")
-
+# Handle reviewing
+if not today_cards:
+    st.success("🎉 You finished all cards for today!")
 else:
-    st.success("✅ You're done for today!")
+    if not st.session_state.current_card:
+        st.session_state.current_card = list(today_cards.items())[0]
+        st.session_state.show_answer = False
+
+    q, d = st.session_state.current_card
+    st.markdown(f"**Question:** {q}")
+
+    if st.session_state.show_answer:
+        st.markdown(f"**Answer:** {d['answer']}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Got it"):
+                st.session_state.cards[q]["level"] += 1
+                st.session_state.history.append((q, "Correct", d["level"]))
+                st.session_state.current_card = None
+                st.experimental_rerun()
+        with col2:
+            if st.button("❌ Missed it"):
+                st.session_state.cards[q]["level"] = 1
+                st.session_state.history.append((q, "Wrong", d["level"]))
+                st.session_state.current_card = None
+                st.experimental_rerun()
+    else:
+        if st.button("Show Answer"):
+            st.session_state.show_answer = True
+
+# History
+if st.session_state.history:
+    st.markdown("---")
+    st.subheader("📜 Review History")
+    for q, result, prev_level in reversed(st.session_state.history[-10:]):
+        st.write(f"**{result}**: {q} (was Level {prev_level})")
