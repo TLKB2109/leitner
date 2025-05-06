@@ -5,7 +5,13 @@ from datetime import datetime
 import random
 
 DATA_FILE = "terms.json"
-SCHEDULE_FILE = "schedule.json"
+
+# Automatically choose the correct schedule file
+if os.path.exists("custom_schedule.json"):
+    SCHEDULE_FILE = "custom_schedule.json"
+else:
+    SCHEDULE_FILE = "schedule.json"
+
 
 # ---------------- Loaders and Savers ---------------- #
 
