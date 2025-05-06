@@ -1,15 +1,14 @@
 import streamlit as st
 import json
 import os
-import random
+import uuid
 from datetime import datetime
 
-# Constants
 DATA_FILE = 'leitner_cards.json'
-SCHEDULE_FILE = 'schedule.json'
+SCHEDULE_FILE = 'custom_schedule.json'
 MAX_LEVEL = 7
 
-# Load functions
+# Load and save
 def load_cards():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r') as f:
@@ -24,154 +23,133 @@ def load_schedule():
     if os.path.exists(SCHEDULE_FILE):
         with open(SCHEDULE_FILE, 'r') as f:
             return json.load(f)
-    # Fallback if schedule file is missing
-    return {
-        "start_date": str(datetime.today().date()),
-        "schedule": {str(i): [1] for i in range(1, 65)}
-    }
+    return {"start_date": str(datetime.now().date()), "schedule": {}}
 
-# Initialize
 cards = load_cards()
 schedule_data = load_schedule()
+
+# Setup today
 start_date = datetime.strptime(schedule_data["start_date"], "%Y-%m-%d").date()
 days_since_start = (datetime.now().date() - start_date).days
 today_day = (days_since_start % 64) + 1
 todays_levels = schedule_data["schedule"].get(str(today_day), [1])
 
-# Session state
-if 'current_card' not in st.session_state:
-    st.session_state.current_card = None
-if 'show_answer' not in st.session_state:
-    st.session_state.show_answer = False
-if 'reviewed_ids' not in st.session_state:
-    st.session_state.reviewed_ids = []
+# Assign IDs to old cards
+for card in cards:
+    if 'id' not in card:
+        card['id'] = str(uuid.uuid4())
+save_cards(cards)
 
-# Helper functions
+# Get due cards
 def get_due_cards():
-    return [c for c in cards if c['level'] in todays_levels and c['id'] not in st.session_state.reviewed_ids]
+    reviewed = st.session_state.get("reviewed_ids", [])
+    return [c for c in cards if c['level'] in todays_levels and c['id'] not in reviewed]
 
-def pick_next_card():
-    due = get_due_cards()
-    return random.choice(due) if due else None
-
+# Show summary
 def show_summary():
-    st.markdown("### 📊 Level Summary")
+    st.subheader("📊 Level Distribution")
     total = len(cards)
-    for lvl in range(1, MAX_LEVEL + 1):
-        count = len([c for c in cards if c['level'] == lvl])
-        st.write(f"Level {lvl}: {count} cards")
-    st.info(f"📆 Today is Day {today_day} — reviewing levels: {', '.join(map(str, todays_levels))}")
+    for i in range(1, MAX_LEVEL + 1):
+        count = len([c for c in cards if c['level'] == i])
+        st.write(f"Level {i}: {count} cards ({count/total*100:.1f}%)" if total else f"Level {i}: 0 cards")
+    st.info(f"📅 Today is Day {today_day}, reviewing levels: {', '.join(map(str, todays_levels))}")
 
+# Review logic
 def review_today():
-    if not get_due_cards():
+    if "reviewed_ids" not in st.session_state:
+        st.session_state.reviewed_ids = []
+
+    due = get_due_cards()
+    if not due:
         st.success("✅ All cards done for today!")
         return
 
-    if not st.session_state.current_card:
-        st.session_state.current_card = pick_next_card()
+    card = due[0]
+    st.markdown(f"### ❓ {card['front']}")
+    user_input = st.text_input("Your Answer")
 
-    card = st.session_state.current_card
-    if not card:
-        st.success("✅ All cards done for today!")
-        return
+    if st.button("Submit"):
+        if user_input.strip().lower() == card['back'].strip().lower():
+            st.success(f"✅ Correct! ({card['back']})")
+            card['level'] = min(card['level'] + 1, MAX_LEVEL)
+        else:
+            st.error(f"❌ Incorrect. Correct answer: {card['back']}")
+            card['level'] = 1
 
-    st.markdown(f"### ❓ [Level {card['level']}] {card['front']}")
-    if st.button("Show Answer"):
-        st.session_state.show_answer = True
+        st.session_state.reviewed_ids.append(card['id'])
+        save_cards(cards)
+        st.rerun()
 
-    if st.session_state.show_answer:
-        st.markdown(f"**Answer:** {card['back']}")
-        col1, col2, col3 = st.columns(3)
+    if st.button("🗑 Delete This Card"):
+        cards.remove(card)
+        save_cards(cards)
+        st.session_state.reviewed_ids.append(card['id'])  # prevent rerun error
+        st.rerun()
 
-        with col1:
-            if st.button("✅ Correct"):
-                card['level'] = min(card['level'] + 1, MAX_LEVEL)
-                card['last_reviewed'] = str(datetime.today().date())
-                st.session_state.reviewed_ids.append(card['id'])
-                save_cards(cards)
-                st.session_state.show_answer = False
-                st.session_state.current_card = None
-                st.rerun()
-
-        with col2:
-            if st.button("❌ Incorrect"):
-                card['level'] = 1
-                card['last_reviewed'] = str(datetime.today().date())
-                st.session_state.reviewed_ids.append(card['id'])
-                save_cards(cards)
-                st.session_state.show_answer = False
-                st.session_state.current_card = None
-                st.rerun()
-
-        with col3:
-            if st.button("🗑️ Delete"):
-                cards.remove(card)
-                save_cards(cards)
-                st.session_state.reviewed_ids.append(card['id'])
-                st.session_state.show_answer = False
-                st.session_state.current_card = None
-                st.rerun()
-
+# Add card
 def add_card():
-    with st.form("Add Card"):
-        front = st.text_input("Front")
-        back = st.text_input("Back")
-        tag = st.text_input("Tag (optional)")
-        level = st.slider("Level", 1, MAX_LEVEL, 1)
-        if st.form_submit_button("Add"):
-            card = {
-                "id": str(random.randint(100000, 999999)),
-                "front": front,
-                "back": back,
-                "tag": tag,
-                "level": level,
-                "last_reviewed": ""
-            }
-            cards.append(card)
-            save_cards(cards)
-            st.success("Card added!")
+    front = st.text_input("Question")
+    back = st.text_input("Answer")
+    tag = st.text_input("Tag (optional)")
 
+    if st.button("Add Card") and front and back:
+        new_card = {
+            "id": str(uuid.uuid4()),
+            "front": front,
+            "back": back,
+            "tag": tag,
+            "level": 1,
+            "missed_count": 0,
+            "last_reviewed": str(datetime.now().date())
+        }
+        cards.append(new_card)
+        save_cards(cards)
+        st.success("✅ Card added!")
+
+# Manual override
+def override_levels():
+    st.subheader("🛠 Manual Override / Delete")
+    for card in cards:
+        with st.expander(f"{card['front']} → {card['back']} (Level {card['level']})"):
+            col1, col2 = st.columns(2)
+            with col1:
+                new_level = st.slider("Set Level", 1, MAX_LEVEL, card['level'], key=card['id'])
+                if st.button("Update", key=f"update_{card['id']}"):
+                    card['level'] = new_level
+                    save_cards(cards)
+                    st.success("Updated!")
+            with col2:
+                if st.button("Delete", key=f"del_{card['id']}"):
+                    cards.remove(card)
+                    save_cards(cards)
+                    st.success("Deleted!")
+                    st.rerun()
+
+# Import
 def import_cards():
-    st.markdown("### 📥 Import Cards (format: front::back::tag::level)")
-    text = st.text_area("Paste your cards here")
+    st.subheader("📥 Bulk Import")
+    st.text("Format: Question::Answer::Tag::Level (optional tag/level)")
+    raw = st.text_area("Paste cards:")
     if st.button("Import"):
         count = 0
-        for line in text.strip().split("\n"):
+        for line in raw.strip().split("\n"):
             parts = line.strip().split("::")
             if len(parts) >= 2:
-                front = parts[0]
-                back = parts[1]
-                tag = parts[2] if len(parts) > 2 else ""
-                level = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else 1
                 cards.append({
-                    "id": str(random.randint(100000, 999999)),
-                    "front": front,
-                    "back": back,
-                    "tag": tag,
-                    "level": level,
-                    "last_reviewed": ""
+                    "id": str(uuid.uuid4()),
+                    "front": parts[0],
+                    "back": parts[1],
+                    "tag": parts[2] if len(parts) >= 3 else "",
+                    "level": int(parts[3]) if len(parts) == 4 else 1,
+                    "missed_count": 0,
+                    "last_reviewed": str(datetime.now().date())
                 })
                 count += 1
         save_cards(cards)
-        st.success(f"Imported {count} card(s)")
+        st.success(f"✅ Imported {count} card(s)")
 
-def manual_override():
-    st.markdown("### 🛠️ Manual Override")
-    for i, card in enumerate(cards):
-        with st.expander(f"{card['front']} → {card['back']} [Level {card['level']}]"):
-            new_level = st.slider("Set new level", 1, MAX_LEVEL, card['level'], key=f"lvl_{i}")
-            if st.button("Update", key=f"btn_{i}"):
-                card['level'] = new_level
-                save_cards(cards)
-                st.success("Updated!")
-            if st.button("Delete", key=f"del_{i}"):
-                cards.pop(i)
-                save_cards(cards)
-                st.rerun()
-
-# Sidebar navigation
-st.sidebar.title("📚 Menu")
-page = st.sidebar.radio("", [
+# Sidebar menu
+page = st.sidebar.radio("📚 Menu", [
     "Summary", "Review Today's Cards", "Add Card", "Import Cards", "Manual Override"
 ])
 
@@ -186,4 +164,4 @@ elif page == "Add Card":
 elif page == "Import Cards":
     import_cards()
 elif page == "Manual Override":
-    manual_override()
+    override_levels()
