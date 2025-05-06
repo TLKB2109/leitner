@@ -1,128 +1,129 @@
 import streamlit as st
 import json
 import os
-from datetime import datetime
+import datetime
 import random
 
-DATA_FILE = "terms.json"
+DATA_FILE = "cards.json"
 SCHEDULE_FILE = "schedule.json"
 
-# ========== Loaders and Savers ==========
-
-def load_terms():
-    if not os.path.exists(DATA_FILE):
-        return []
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_terms(terms):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(terms, f, ensure_ascii=False, indent=2)
+# Default schedule fallback
+DEFAULT_SCHEDULE = {
+    "start_date": "2025-04-19",
+    "schedule": {
+        str(i): [lvl for lvl in [2, 1] if (i % 16) in [1, 9, 17, 25, 33, 41, 49, 57]] + 
+                [lvl for lvl in [3] if (i % 16) in [2, 10, 18, 26, 34, 42, 50, 58]] +
+                [lvl for lvl in [4] if (i % 16) in [4, 12, 20, 28, 36, 44, 52, 60]] +
+                [lvl for lvl in [5] if (i % 16) in [13, 21, 29, 37, 45, 53, 61]] +
+                [lvl for lvl in [6] if i in [24, 59]] +
+                [lvl for lvl in [7] if i in [56]] +
+                [lvl for lvl in [1] if i % 8 == 0 or i % 64 == 0]
+        for i in range(1, 65)
+    }
+}
 
 def load_schedule():
     if os.path.exists(SCHEDULE_FILE):
-        with open(SCHEDULE_FILE, "r", encoding="utf-8") as f:
+        try:
+            with open(SCHEDULE_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return DEFAULT_SCHEDULE
+    return DEFAULT_SCHEDULE
+
+def save_cards(cards):
+    with open(DATA_FILE, "w") as f:
+        json.dump(cards, f, indent=2)
+
+def load_cards():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
             return json.load(f)
-    else:
-        return {
-            "start_date": "2025-04-19",
-            "schedule": {
-                str(day): levels for day, levels in zip(
-                    range(1, 65),
-                    [[2, 1], [3, 1], [2, 1], [4, 1], [2, 1], [3, 1], [2, 1], [1], [2, 1], [3, 1], [2, 1], [5, 1],
-                     [4, 2, 1], [3, 1], [2, 1], [1], [2, 1], [3, 1], [2, 1], [4, 1], [2, 1], [3, 1], [2, 1], [6, 1],
-                     [2, 1], [3, 1], [2, 1], [5, 1], [4, 2, 1], [3, 1], [2, 1], [1], [2, 1], [3, 1], [2, 1], [4, 1],
-                     [2, 1], [3, 1], [2, 1], [1], [2, 1], [3, 1], [2, 1], [5, 1], [4, 2, 1], [3, 1], [2, 1], [1],
-                     [2, 1], [3, 1], [2, 1], [4, 1], [2, 1], [3, 1], [2, 1], [7, 1], [2, 1], [3, 1], [6, 2, 1],
-                     [5, 1], [4, 2, 1], [3, 1], [2, 1], [1]]
-                )
-            }
-        }
+    return []
 
-def get_today_day(start_date_str):
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    today = datetime.now().date()
-    return (today - start_date).days % 64 + 1
+def get_today_day(start_date):
+    today = datetime.date.today()
+    start = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+    delta = (today - start).days
+    return (delta % 64) + 1
 
-def get_cards_for_today(terms, levels_today):
-    return [t for t in terms if t["level"] in levels_today]
+def get_today_levels(schedule, day):
+    return list(map(int, schedule["schedule"].get(str(day), [1])))
 
-# ========== Streamlit App ==========
+# ---------------- STREAMLIT APP ----------------
 
-def main():
-    st.title("🧠 Leitner Box (Daily Review)")
-    schedule_data = load_schedule()
-    terms = load_terms()
-    today_day = get_today_day(schedule_data["start_date"])
-    levels_today = schedule_data["schedule"].get(str(today_day), [])
-    cards_today = get_cards_for_today(terms, levels_today)
+st.set_page_config(page_title="Leitner Box", layout="wide")
 
-    # Sidebar
-    st.sidebar.header("📂 Menu")
+st.title("📚 Leitner Box Flashcards")
+cards = load_cards()
+schedule = load_schedule()
+today_day = get_today_day(schedule["start_date"])
+today_levels = get_today_levels(schedule, today_day)
 
-    with st.sidebar.expander("📥 Import Cards"):
-        import_text = st.text_area("Paste terms (Question::Answer::Tag::Level format)")
-        if st.button("Import"):
-            if import_text:
-                new_terms = []
-                for line in import_text.strip().split("\n"):
-                    parts = line.strip().split("::")
-                    if len(parts) == 4:
-                        q, a, tag, lvl = parts
-                        new_terms.append({
-                            "question": q.strip(),
-                            "answer": a.strip(),
-                            "tag": tag.strip(),
-                            "level": int(lvl),
-                            "history": []
-                        })
-                terms.extend(new_terms)
-                save_terms(terms)
-                st.success(f"✅ Imported {len(new_terms)} new cards.")
+st.sidebar.header("📅 Today is Day {}".format(today_day))
+st.sidebar.markdown("**Reviewing Levels:** {}".format(", ".join(map(str, today_levels))))
 
-    if st.sidebar.button("📤 Export Cards"):
-        st.download_button(
-            "Download terms.json",
-            data=json.dumps(terms, indent=2, ensure_ascii=False),
-            file_name="terms.json",
-            mime="application/json"
-        )
+# Menu Bar
+with st.expander("📥 Import Cards"):
+    text_input = st.text_area("Paste terms (format: Question::Answer::Tag::Level)", height=200)
+    if st.button("Import Cards"):
+        count = 0
+        for line in text_input.strip().split("\n"):
+            parts = line.strip().split("::")
+            if len(parts) >= 4:
+                question, answer, tag, level = parts
+                cards.append({
+                    "question": question.strip(),
+                    "answer": answer.strip(),
+                    "tag": tag.strip(),
+                    "level": int(level),
+                    "streak": 0
+                })
+                count += 1
+        save_cards(cards)
+        st.success(f"✅ Imported {count} new cards.")
 
-    # Level distribution
-    st.sidebar.markdown("### 📊 Level Distribution")
-    total = len(terms)
-    for lvl in range(1, 8):
-        count = sum(1 for t in terms if t["level"] == lvl)
-        percent = (count / total * 100) if total > 0 else 0
-        st.sidebar.write(f"Level {lvl}: {count} cards ({percent:.1f}%)")
+with st.expander("🗂 Organize Levels"):
+    for i, card in enumerate(cards):
+        col1, col2, col3 = st.columns([5, 2, 2])
+        with col1:
+            st.markdown(f"**{card['question']}**  \n*{card['tag']}*", unsafe_allow_html=True)
+        with col2:
+            new_level = st.selectbox(f"Level:", options=list(range(1, 8)), index=card["level"] - 1, key=f"level_{i}")
+            card["level"] = new_level
+        with col3:
+            if st.button("❌ Delete", key=f"del_{i}"):
+                cards.pop(i)
+                save_cards(cards)
+                st.experimental_rerun()
+    save_cards(cards)
 
-    # Review Section
-    st.subheader(f"📅 Today's levels: {levels_today} —")
+# Review Cards for Today
+review_cards = [card for card in cards if card["level"] in today_levels]
 
-    if cards_today:
-        st.write(f"🃏 {len(cards_today)} card(s) due today.")
-        random.shuffle(cards_today)
-        for i, card in enumerate(cards_today):
-            with st.form(key=f"card_{i}"):
-                st.markdown(f"**{card['question']}** ({card['tag']})")
-                answer = st.text_input("Your answer")
-                submitted = st.form_submit_button("Submit")
-                if submitted:
-                    correct = answer.strip().lower() == card["answer"].strip().lower()
-                    if correct:
-                        st.success("✅ Correct!")
-                        card["level"] = min(card["level"] + 1, 7)
-                    else:
-                        st.error(f"❌ Incorrect. Correct answer: {card['answer']}")
-                        card["level"] = 1
-                    card["history"].append({
-                        "date": datetime.now().isoformat(),
-                        "correct": correct
-                    })
-                    save_terms(terms)
-                    st.rerun()
-    else:
-        st.success("🎉 You're done for today!")
+st.subheader("📝 Review")
+if review_cards:
+    card = random.choice(review_cards)
+    with st.form(key="quiz"):
+        st.write(f"**Question:** {card['question']}")
+        user_answer = st.text_input("Your Answer")
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            if user_answer.strip().lower() == card["answer"].strip().lower():
+                card["streak"] += 1
+                if card["level"] < 7:
+                    card["level"] += 1
+                st.success("✅ Correct!")
+            else:
+                card["streak"] = 0
+                card["level"] = 1
+                st.error(f"❌ Incorrect! Answer was: {card['answer']}")
+            save_cards(cards)
+            st.experimental_rerun()
+    st.caption(f"Remaining cards: {len(review_cards)}")
+else:
+    st.success("🎉 You're done for today! No cards to review.")
 
-if __name__ == "__main__":
-    main()
+# Footer
+st.markdown("---")
+st.caption("Built with ❤️ for spaced repetition.")
