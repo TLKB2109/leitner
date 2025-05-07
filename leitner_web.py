@@ -8,6 +8,7 @@ from datetime import datetime
 # File paths
 DATA_FILE = 'leitner_cards.json'
 SCHEDULE_FILE = 'custom_schedule.json'
+REVIEWED_FILE = 'reviewed_ids.json'
 MAX_LEVEL = 7
 
 # Load cards
@@ -35,6 +36,18 @@ def load_schedule():
         st.error("Schedule file missing!")
         return {"start_date": str(datetime.now().date()), "schedule": {}}
 
+# Save reviewed card IDs
+def save_reviewed_ids(reviewed_ids):
+    with open(REVIEWED_FILE, 'w') as f:
+        json.dump(reviewed_ids, f)
+
+# Load reviewed card IDs
+def load_reviewed_ids():
+    if os.path.exists(REVIEWED_FILE):
+        with open(REVIEWED_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
 # Calculate today's level list
 def get_today_day_and_levels(schedule_data):
     start_date = datetime.strptime(schedule_data["start_date"], "%Y-%m-%d").date()
@@ -60,9 +73,11 @@ def show_summary(cards, today_day, todays_levels):
 # Review cards
 def review_cards(cards, todays_levels):
     if "reviewed_ids" not in st.session_state:
-        st.session_state.reviewed_ids = []
+        st.session_state.reviewed_ids = load_reviewed_ids()
 
     due_cards = get_due_cards(cards, todays_levels, st.session_state.reviewed_ids)
+    st.info(f"Cards left today: **{len(due_cards)}**")
+
     if not due_cards:
         st.success("🎉 You're done for today!")
         return
@@ -84,6 +99,7 @@ def review_cards(cards, todays_levels):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.session_state.reviewed_ids.append(card['id'])
                 save_cards(cards)
+                save_reviewed_ids(st.session_state.reviewed_ids)
                 st.session_state.show_answer = False
                 st.rerun()
 
@@ -93,6 +109,7 @@ def review_cards(cards, todays_levels):
                 card['last_reviewed'] = str(datetime.now().date())
                 st.session_state.reviewed_ids.append(card['id'])
                 save_cards(cards)
+                save_reviewed_ids(st.session_state.reviewed_ids)
                 st.session_state.show_answer = False
                 st.rerun()
 
@@ -101,6 +118,7 @@ def review_cards(cards, todays_levels):
                 cards.remove(card)
                 st.session_state.reviewed_ids.append(card['id'])
                 save_cards(cards)
+                save_reviewed_ids(st.session_state.reviewed_ids)
                 st.success("Card deleted.")
                 st.session_state.show_answer = False
                 st.rerun()
