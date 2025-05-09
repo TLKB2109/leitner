@@ -60,6 +60,13 @@ def get_today_day_and_levels(schedule_data):
 def get_due_cards(cards, todays_levels, reviewed_ids):
     return [c for c in cards if c['level'] in todays_levels and c['id'] not in reviewed_ids]
 
+# Export buttons
+def export_data(cards):
+    st.download_button("📤 Export Cards", json.dumps(cards, indent=2), file_name="leitner_cards_backup.json")
+
+def export_reviewed_ids(ids):
+    st.download_button("📤 Export Reviewed IDs", json.dumps(ids, indent=2), file_name="reviewed_ids_backup.json")
+
 # Show summary
 def show_summary(cards, today_day, todays_levels):
     st.subheader("📊 Level Distribution")
@@ -203,6 +210,8 @@ page = st.sidebar.radio("📋 Menu", [
 
 if page == "Home":
     show_summary(cards, today_day, todays_levels)
+    export_data(cards)
+    export_reviewed_ids(st.session_state.reviewed_ids if "reviewed_ids" in st.session_state else [])
 
 elif page == "Review Today's Cards":
     review_cards(cards, todays_levels)
@@ -212,9 +221,12 @@ elif page == "Review All Cards":
 
 elif page == "Review by Tag":
     tags = list(set(c['tag'] for c in cards if c.get("tag")))
-    tag = st.selectbox("Choose a tag", tags)
-    filtered = [c for c in cards if c.get("tag") == tag]
-    review_cards(filtered, list(range(1, MAX_LEVEL + 1)))
+    if tags:
+        tag = st.selectbox("Choose a tag", tags)
+        filtered = [c for c in cards if c.get("tag") == tag]
+        review_cards(filtered, list(range(1, MAX_LEVEL + 1)))
+    else:
+        st.info("No tags available yet.")
 
 elif page == "Add New Card":
     add_card(cards)
