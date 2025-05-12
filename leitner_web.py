@@ -58,7 +58,9 @@ def get_today_day_and_levels(schedule_data):
 
 # Get today's cards
 def get_due_cards(cards, todays_levels, reviewed_ids):
-    return [c for c in cards if c['level'] in todays_levels and c['id'] not in reviewed_ids]
+    due = [c for c in cards if c['level'] in todays_levels and c['id'] not in reviewed_ids]
+    random.shuffle(due)
+    return due
 
 # Export buttons
 def export_data(cards):
@@ -176,19 +178,20 @@ def import_cards(cards):
         save_cards(cards)
         st.success(f"Imported {count} cards.")
 
-# Override levels
+# Override levels and edit card contents
 def manual_override(cards):
     st.subheader("🛠 Manual Override")
     for card in cards:
-        with st.expander(f"{card['front']} → {card['back']} (Level {card['level']})"):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                new_level = st.slider("Level", 1, MAX_LEVEL, card['level'], key=card['id'])
-            with col2:
-                if st.button("Update", key=card['id'] + "_update"):
-                    card['level'] = new_level
-                    save_cards(cards)
-                    st.success("Updated")
+        with st.expander(f"[Level {card['level']}] {card['front']} → {card['back']}"):
+            card['front'] = st.text_input("✏️ Edit Question", card['front'], key=card['id'] + "_front")
+            card['back'] = st.text_input("✅ Edit Answer", card['back'], key=card['id'] + "_back")
+            card['tag'] = st.text_input("🏷 Edit Tag", card.get('tag', ""), key=card['id'] + "_tag")
+            new_level = st.slider("📈 Set Level", 1, MAX_LEVEL, card['level'], key=card['id'] + "_level")
+
+            if st.button("Update Card", key=card['id'] + "_update"):
+                card['level'] = new_level
+                save_cards(cards)
+                st.success("✅ Card updated")
 
 # App logic
 cards = load_cards()
